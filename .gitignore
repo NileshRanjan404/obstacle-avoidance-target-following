@@ -1,0 +1,13 @@
+# ROS 2 build output
+build/
+install/
+log/
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+# training run output (large / changing); the chosen parameters live in config/agv.yaml
+tools/learn/*.log
+tools/learn/results*.json
+# macOS
+.DS_Store
