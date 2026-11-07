@@ -1,0 +1,130 @@
+# agv.yaml - every tunable number for the AGV, in one place.
+# Values marked CALIBRATE are placeholders until we calibrate.
+#
+# Frames: base_link sits on the ground under the CENTRE OF THE REAR AXLE,
+#         x forward, y left, angles counter-clockwise (ROS convention).
+
+# ---------------- shared by every node ----------------
+/**:
+  ros__parameters:
+    # Reverse drive is faulty on the hardware (about 13x slower than forward, 2026-11-26).
+    # false = base_driver ignores backward commands and follower never reverses.
+    allow_reverse: false
+
+    # chassis
+    wheelbase: 0.14            # m, rear axle to front axle (measured)
+    max_steer_deg: 11.0        # real WHEEL degrees: servo +-50 / linkage ratio 4.4 (turn radius ~0.7 m)
+    footprint_front: 0.205     # m, rear axle -> front bumper (measured)
+    footprint_rear: 0.045      # m, rear axle -> rear bumper (measured)
+    footprint_width: 0.28      # m, full width (measured)
+
+    # lidar mount (relative to base_link)
+    laser_x: 0.08              # m (measured)
+    laser_y: 0.0               # assumed on the centre line
+    laser_z: 0.15              # m, only used for rviz
+    # Drive test 2026-11-26: robot forward = lidar -134.8 deg (box test: -144.5 deg).
+    # robot_angle = laser_angle_sign * lidar_angle + laser_yaw_deg  ->  yaw = +134.8
+    laser_yaw_deg: -134.8
+    laser_angle_sign: -1.0     # drive tests 2026-11-26: lidar angles grow CLOCKWISE (a left turn read as right)
+
+    # camera mount (relative to base_link)
+    camera_x: 0.205            # m (measured)
+    camera_y: 0.0              # assumed on the centre line
+    camera_z: 0.15             # m, only used for rviz
+    camera_yaw_deg: 6.0        # camera_calib.py: straight ahead read -6 deg (camera turned right)
+
+    # target
+    ball_diameter: 0.07        # m (measured)
+
+# ---------------- Arduino bridge + odometry ----------------
+base_driver:
+  ros__parameters:
+    port: ""                   # empty = auto-detect the GIGA
+    # 7 cm wheel, 2340 counts per wheel turn (both edges of channel A, from the original RPM.ino)
+    meters_per_count: 0.00009398   # = pi * 0.07 / 2340
+    max_speed: 0.5             # m/s, about the top speed at the 70 % duty cap
+    cmd_timeout: 0.3           # s, stop if /cmd_vel goes quiet
+    servo_center_deg: 94.0     # drive test: 85 drifted right ~2 deg (wheel) -> +9 deg servo
+    servo_dir: 1.0             # bigger servo angle turns LEFT (steer_calib.py)
+    # servo travel from centre: 55 deg left (140) and 55 deg right (30), symmetric
+    servo_per_wheel_deg: 4.4   # drive test: 20 deg command turned the wheels only ~4.5 deg
+    # speed loop on the GIGA (duty % units), from the original robot_bridge.py:
+    #   needs ~65 % duty to move on the floor, ~0.5 m/s at the 70 % cap
+    #   0.5 m/s = 5320 counts/s  ->  kff = (70 - 62) / 5320
+    kp: 0.002                  # duty % per (counts/s) of speed error
+    ki: 0.004                  # lets the loop add the missing few % on carpet/slopes
+    kff: 0.0015
+    u0: 62.0                   # duty % to just start moving (old min was 65)
+    accel: 0.8                 # m/s^2
+    publish_tf: true
+
+# ---------------- webcam ball detection ----------------
+ball_detector:
+  ros__parameters:
+    device: "/dev/video0"
+    width: 640
+    height: 480
+    fps: 30
+    # keep 30 fps in dim light; 50 Hz mains (India) to avoid flicker
+    v4l2_controls: "exposure_dynamic_framerate=0,power_line_frequency=1"
+    hfov_deg: 37.7             # measured with the old ball_calib.py at 640x480
+    focal_px: 0.0              # 0 = use hfov_deg (camera_calib.py agreed within 1 %)
+    center_offset_px: 0.0      # pixel column of the optical centre minus width/2
+    hsv_low: [20, 100, 100]    # yellow, same as the old follow.py
+    hsv_high: [35, 255, 255]
+    min_radius_px: 6.0
+    min_fill: 0.50             # blob area / enclosing-circle area (old code used 0.45)
+    close_kernel_px: 15        # fills the smiley's eyes and mouth
+    debug_rate: 10.0           # Hz, 0 = no debug image
+    debug_view: "overlay"      # "overlay" or "mask"
+    stream_port: 8080          # live view in a browser: http://<pi-ip>:8080  (0 = off)
+
+# ---------------- decision making ----------------
+follower:
+  ros__parameters:
+    enabled: true
+    rate: 20.0                 # Hz
+    stop_distance: 0.30        # m, robot front bumper -> ball surface
+    stop_hysteresis: 0.05      # m, extra gap needed before moving again
+    max_speed: 0.40            # m/s (top speed is ~0.5 at the duty cap)
+    min_speed: 0.15            # m/s, the motor cannot crawl much slower than this
+    speed_gain: 0.8            # (m/s) per m of extra gap
+    decel: 0.8                 # m/s^2, used to keep a safe stopping distance
+    safety_margin: 0.06        # m, added around the footprint
+    stop_buffer: 0.10          # m, free space always kept in front
+    horizon: 2.0               # m, how far ahead arcs are checked (sees obstacles earlier)
+    arc_step: 0.05             # m
+    n_arcs: 15
+    w_goal: 1.0
+    w_block: 4.0               # strong penalty for arcs that run into something -> swerves early
+    squeeze_margin: 0.02       # m, thin margin used when nothing passes with safety_margin
+    squeeze_buffer: 0.05       # m, stop_buffer used for that squeeze
+    w_clear: 0.6
+    w_smooth: 0.2
+    clear_ref: 0.40            # m, clearance above this is not rewarded
+    ball_ignore_radius: 0.25   # m, lidar points this close to the ball are not obstacles
+    # ball tracker (Kalman filter, position + velocity, see tracker.py)
+    memory_timeout: 3.0        # s, drive to a MOVING ball's predicted position for this long after losing it
+    memory_timeout_still: 8.0  # s, ...and to a STILL ball's position for this long (e.g. going round an obstacle)
+    still_speed: 0.05          # m/s, below this the ball counts as still
+    max_extrapolation: 2.0     # s, never predict a lost ball further ahead than this
+    lead_time: 0.4             # s, aim this far ahead of a moving ball
+    tracker_accel_noise: 0.6   # m/s^2, how quickly the ball may change speed/direction
+    close_wait_margin: 0.25    # m: ball lost this close to the stop point -> wait, don't search
+    close_wait_timeout: 5.0    # s: ...but search after this long
+    search_enabled: true       # explore when the ball is not visible (also right after start)
+    search_circle_deg: 360.0   # look around: turn this much on the spot...
+    search_roam_m: 1.0         # ...then drive this far (avoiding obstacles) and look around again
+    search_circle_room: 1.2    # m of clear full-lock arc needed before circling (else roam to open space first)
+    search_look_m: 2.5         # m, how far ahead to judge which direction is most open when roaming
+    reposition_factor: 0.0     # >0: if the ball is inside the turning circle, swing away first (0 = off)
+    ball_keepout: 0.15         # m around the last-seen ball that the search never drives into (RC car)
+    search_speed: 0.15         # m/s (slow, so the camera has time to spot the ball)
+    search_timeout: 600.0      # s, keep searching (circling) for up to 10 min
+    blocked_timeout: 1.5       # s, then try reversing
+    recover_distance: 0.30     # m
+    recover_speed: 0.15        # m/s
+    laser_min_range: 0.05      # m
+    self_filter_margin: 0.05   # m around the footprint: lidar hits here are the robot itself
+    laser_max_range: 4.0       # m
+    scan_timeout: 0.5          # s
