@@ -86,44 +86,44 @@ follower:
     rate: 20.0                 # Hz
     stop_distance: 0.30        # m, robot front bumper -> ball surface
     stop_hysteresis: 0.05      # m, extra gap needed before moving again
-    max_speed: 0.432      # [learned] m/s (top speed is ~0.5 at the duty cap)
+    max_speed: 0.383      # [learned] m/s (top speed is ~0.5 at the duty cap)
     min_speed: 0.15            # m/s, the motor cannot crawl much slower than this
-    speed_gain: 1.185      # [learned] (m/s) per m of extra gap
+    speed_gain: 1.343      # [learned] (m/s) per m of extra gap
     decel: 0.8                 # m/s^2, used to keep a safe stopping distance
-    safety_margin: 0.063      # [learned] m, added around the footprint
+    safety_margin: 0.062      # [learned] m, added around the footprint
     stop_buffer: 0.10          # m, free space always kept in front
-    horizon: 1.861      # [learned] m, how far ahead arcs are checked (sees obstacles earlier)
+    horizon: 1.246      # [learned] m, how far ahead arcs are checked (sees obstacles earlier)
     arc_step: 0.05             # m
-    n_arcs: 19         # [learned]
+    n_arcs: 17         # [learned]
     w_goal: 1.0
-    w_block: 1.974      # [learned] strong penalty for arcs that run into something -> swerves early
+    w_block: 2.503      # [learned] strong penalty for arcs that run into something -> swerves early
     squeeze_margin: 0.02       # m, thin margin used when nothing passes with safety_margin
     squeeze_buffer: 0.05       # m, stop_buffer used for that squeeze
-    w_clear: 0.279      # [learned]
-    w_smooth: 0.11       # [learned]
-    clear_ref: 0.488      # [learned] m, clearance above this is not rewarded
-    ball_ignore_radius: 0.196      # [learned] m, lidar points this close to the ball are not obstacles
+    w_clear: 0.176      # [learned]
+    w_smooth: 0.000       # [learned]
+    clear_ref: 0.510      # [learned] m, clearance above this is not rewarded
+    ball_ignore_radius: 0.211      # [learned] m, lidar points this close to the ball are not obstacles
     # ball tracker (Kalman filter, position + velocity, see tracker.py)
-    memory_timeout: 3.608      # [learned] s, drive to a MOVING ball's predicted position for this long after losing it
-    memory_timeout_still: 3.96       # [learned] s, ...and to a STILL ball's position for this long (e.g. going round an obstacle)
+    memory_timeout: 2.898      # [learned] s, drive to a MOVING ball's predicted position for this long after losing it
+    memory_timeout_still: 4.361       # [learned] s, ...and to a STILL ball's position for this long (e.g. going round an obstacle)
     still_speed: 0.05          # m/s, below this the ball counts as still
     max_extrapolation: 2.0     # s, never predict a lost ball further ahead than this
-    lead_time: 0.458      # [learned] s, aim this far ahead of a moving ball
+    lead_time: 0.402      # [learned] s, aim this far ahead of a moving ball
     tracker_accel_noise: 0.6   # m/s^2, how quickly the ball may change speed/direction
     close_wait_margin: 0.25    # m: ball lost this close to the stop point -> wait, don't search
     close_wait_timeout: 5.0    # s: ...but search after this long
     search_enabled: true       # explore when the ball is not visible (also right after start)
-    search_circle_deg: 391.828    # [learned] look around: turn this much on the spot...
-    search_roam_m: 1.209      # [learned] ...then drive this far (avoiding obstacles) and look around again
-    search_circle_room: 1.611      # [learned] m of clear full-lock arc needed before circling (else roam to open space first)
-    search_look_m: 2.865      # [learned] m, how far ahead to judge which direction is most open when roaming
-    reposition_factor: 0.1        # [learned] >0: if the ball is inside the turning circle, swing away first (0 = off)
-    keepout_fresh_s: 2.0       # s, the ball's keep-out ring only applies while its position is this fresh
-    escape_len: 0.8            # m of turn-away room the robot wants to keep (no reverse, wide turns)
-    escape_check_m: 0.3        # m along each arc where that room is checked
-    w_trap: 3.0                # penalty for arcs that would leave the robot trapped
-    ball_keepout: 0.204      # [learned] m around the last-seen ball that the search never drives into (RC car)
-    search_speed: 0.309      # [learned] m/s (slow, so the camera has time to spot the ball)
+    search_circle_deg: 408.807    # [learned] look around: turn this much on the spot...
+    search_roam_m: 1.268      # [learned] ...then drive this far (avoiding obstacles) and look around again
+    search_circle_room: 1.881      # [learned] m of clear full-lock arc needed before circling (else roam to open space first)
+    search_look_m: 2.416      # [learned] m, how far ahead to judge which direction is most open when roaming
+    reposition_factor: 0.036        # [learned] >0: if the ball is inside the turning circle, swing away first (0 = off)
+    keepout_fresh_s: 1.657       # s, the ball's keep-out ring only applies while its position is this fresh
+    escape_len: 0.650            # m of turn-away room the robot wants to keep (no reverse, wide turns)
+    escape_check_m: 0.161        # m along each arc where that room is checked
+    w_trap: 1.718                # penalty for arcs that would leave the robot trapped
+    ball_keepout: 0.216      # [learned] m around the last-seen ball that the search never drives into (RC car)
+    search_speed: 0.285      # [learned] m/s (slow, so the camera has time to spot the ball)
     search_timeout: 600.0      # s, keep searching (circling) for up to 10 min
     blocked_timeout: 1.5       # s, then try reversing
     recover_distance: 0.30     # m
